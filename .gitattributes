@@ -3,3 +3,4 @@
 src/lib/snarky/src/camlsnark_c/libsnark-caml/* linguist-vendored
 *.png filter=lfs diff=lfs merge=lfs -text
 docs/res/transition_frontier_diagram.png filter=lfs diff=lfs merge=lfs -text
+docs/res/ledgers_in_frontier.png filter=lfs diff=lfs merge=lfs -text
