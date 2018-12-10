@@ -238,6 +238,7 @@ module type Main_intf = sig
 
     module Ledger_builder_diff : sig
       type t [@@deriving sexp, bin_io]
+      type checked [@@deriving sexp, bin_io]
     end
 
     module Internal_transition :
@@ -480,6 +481,7 @@ struct
   module Ledger_builder :
     Protocols.Coda_pow.Ledger_builder_intf
     with type diff := Ledger_builder_diff.t
+     and type checked_diff := Ledger_builder_diff.checked
      and type valid_diff :=
                 Ledger_builder_diff.With_valid_signatures_and_proofs.t
      and type ledger_hash := Ledger_hash.t
@@ -490,7 +492,8 @@ struct
      and type user_command_with_valid_signature :=
                 User_command.With_valid_signature.t
      and type statement := Completed_work.Statement.t
-     and type completed_work := Completed_work.Checked.t
+     and type completed_work := Completed_work.t
+     and type completed_work_checked := Completed_work.Checked.t
      and type ledger_proof := Ledger_proof.t
      and type ledger_builder_aux_hash := Ledger_builder_aux_hash.t
      and type sparse_ledger := Sparse_ledger.t
@@ -584,7 +587,7 @@ struct
     module Completed_work = Completed_work
     module Ledger_builder_diff = Ledger_builder_diff
     module External_transition = External_transition
-    module Ledger_builder = Patched_ledger_builder
+    module Ledger_builder = Patched_ledger_builder                          
   end)
 
   module Transaction_pool = struct

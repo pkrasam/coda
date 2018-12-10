@@ -19,6 +19,7 @@ end
 module Make (Inputs : Inputs_intf) :
   Catchup_intf
   with type external_transition := Inputs.External_transition.t
+   and type external_transition_checked := Inputs.External_transition.checked
    and type transition_frontier := Inputs.Transition_frontier.t
    and type transition_frontier_breadcrumb :=
               Inputs.Transition_frontier.Breadcrumb.t

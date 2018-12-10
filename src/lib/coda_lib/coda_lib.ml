@@ -418,6 +418,7 @@ module type Inputs_intf = sig
     Protocols.Coda_transition_frontier.Transition_frontier_controller_intf
     with type time_controller := Time.Controller.t
      and type external_transition := External_transition.t
+     and type external_transition_checked := External_transition.checked
      and type syncable_ledger_query := Sync_ledger.query
      and type syncable_ledger_answer := Sync_ledger.answer
      and type transition_frontier := Transition_frontier.t
@@ -554,7 +555,7 @@ module Make (Inputs : Inputs_intf) = struct
   end
 
   let verify_ledger_builder transition_frontier transition_with_hash =
-    let external_transition = With_hash.data transition_with_hash in
+    let (external_transition:External_transition.checked) = With_hash.data transition_with_hash in
     let external_transition_hash = With_hash.hash transition_with_hash in
     let crumb =
       Transition_frontier.find_exn transition_frontier external_transition_hash
@@ -570,7 +571,7 @@ module Make (Inputs : Inputs_intf) = struct
       ->
         let bc_state =
           Consensus_mechanism.Protocol_state.blockchain_state
-            (External_transition.protocol_state external_transition)
+            (External_transition.checked_protocol_state external_transition)
         in
         [%test_eq: Currency.Fee.Signed.t] Currency.Fee.Signed.zero fee_excess ;
         [%test_eq: Frozen_ledger_hash.t]
@@ -661,7 +662,8 @@ module Make (Inputs : Inputs_intf) = struct
                Debug_assert.debug_assert (fun () ->
                    verify_ledger_builder transition_frontier
                      transition_with_hash ) ;
-               Net.broadcast_state net (With_hash.data transition_with_hash) )) ;
+               (* remove checked status for network broadcast *)
+               Net.broadcast_state net (Obj.magic (* (External_transition.uncheck *) (With_hash.data transition_with_hash)  ) )) ;
         don't_wait_for
           (Linear_pipe.transfer_id (Net.states net) external_transitions_writer) ;
         let%bind snark_pool =
@@ -691,7 +693,7 @@ module Make (Inputs : Inputs_intf) = struct
           ; transaction_pool
           ; snark_pool
           ; transition_frontier
-          ; strongest_ledgers= valid_transitions_for_api
+          ; strongest_ledgers= Obj.magic valid_transitions_for_api
           ; log= config.log
           ; seen_jobs= Work_selector.State.init
           ; ledger_builder_transition_backup_capacity=

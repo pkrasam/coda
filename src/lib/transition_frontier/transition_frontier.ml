@@ -35,6 +35,7 @@ module type Inputs_intf = sig
   module Ledger_builder :
     Ledger_builder_intf
     with type diff := Ledger_builder_diff.t
+     and type checked_diff := Ledger_builder_diff.checked
      and type valid_diff :=
                 Ledger_builder_diff.With_valid_signatures_and_proofs.t
      and type ledger_builder_hash := Ledger_builder_hash.t
@@ -44,13 +45,14 @@ module type Inputs_intf = sig
      and type ledger := Ledger.t
      and type user_command_with_valid_signature :=
                 User_command.With_valid_signature.t
-     and type completed_work := Completed_work.Checked.t
+     and type completed_work := Completed_work.t
 end
 
 module Make (Inputs : Inputs_intf) :
   Transition_frontier_intf
   with type state_hash := State_hash.t
    and type external_transition := Inputs.External_transition.t
+   and type external_transition_checked := Inputs.External_transition.checked
    and type ledger_database := Ledger.Db.t
    and type masked_ledger := Ledger.Mask.Attached.t
    and type ledger_builder := Inputs.Ledger_builder.t = struct
@@ -60,7 +62,7 @@ module Make (Inputs : Inputs_intf) :
 
   (* Transaction_snark_scan_state and Staged_ledger long-term will not live in
   * this module *)
-  
+
   (* Right now Transaction_snark_scan_state is not different from a
      * ledger-builder diff *)
   module Transaction_snark_scan_state : sig
@@ -351,11 +353,11 @@ module Make (Inputs : Inputs_intf) :
   let add_transition_exn t transition_with_hash =
     let root_node = Hashtbl.find_exn t.table t.root in
     let best_tip_node = Hashtbl.find_exn t.table t.best_tip in
-    let transition = With_hash.data transition_with_hash in
+    let (transition:External_transition.checked) = With_hash.data transition_with_hash in
     let hash = With_hash.hash transition_with_hash in
     let parent_hash =
       Consensus.Mechanism.Protocol_state.previous_state_hash
-        (External_transition.protocol_state transition)
+        (External_transition.checked_protocol_state transition)
     in
     let parent_node =
       Option.value_exn
@@ -368,7 +370,7 @@ module Make (Inputs : Inputs_intf) :
       Staged_ledger.apply ~logger:t.logger
         (Breadcrumb.staged_ledger parent_node.breadcrumb)
         (Transaction_snark_scan_state.Diff.of_ledger_builder_diff
-           (External_transition.ledger_builder_diff transition))
+           (External_transition.checked_ledger_builder_diff transition))
       |> Or_error.ok_exn
     in
     let breadcrumb = {Breadcrumb.transition_with_hash; staged_ledger} in
@@ -442,5 +444,5 @@ let%test_module "Transition_frontier tests" =
       interface_works ()
     done
      *)
-  
+
   end )

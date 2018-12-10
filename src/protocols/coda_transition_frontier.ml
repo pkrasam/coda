@@ -60,6 +60,8 @@ module type Transition_frontier_intf = sig
 
   exception Already_exists of state_hash
 
+  type external_transition_checked
+                            
   val max_length : int
 
   val all_breadcrumbs : t -> Breadcrumb.t list
@@ -85,7 +87,7 @@ module type Transition_frontier_intf = sig
   val attach_breadcrumb_exn : t -> Breadcrumb.t -> unit
 
   val add_transition_exn :
-    t -> (external_transition, state_hash) With_hash.t -> Breadcrumb.t
+    t -> (external_transition_checked, state_hash) With_hash.t -> Breadcrumb.t
 end
 
 module type Catchup_intf = sig
@@ -93,13 +95,15 @@ module type Catchup_intf = sig
 
   type external_transition
 
+  type external_transition_checked
+
   type transition_frontier
 
   type transition_frontier_breadcrumb
 
   val run :
        frontier:transition_frontier
-    -> catchup_job_reader:(external_transition, state_hash) With_hash.t
+    -> catchup_job_reader:(external_transition_checked, state_hash) With_hash.t
                           Reader.t
     -> catchup_breadcrumbs_writer:( transition_frontier_breadcrumb list
                                   , crash buffered
@@ -115,6 +119,8 @@ module type Transition_handler_validator_intf = sig
 
   type external_transition
 
+  type external_transition_checked
+
   type transition_frontier
 
   val run :
@@ -124,7 +130,7 @@ module type Transition_handler_validator_intf = sig
                                             Envelope.Incoming.t ]
                          * [`Time_received of time] )
                          Reader.t
-    -> valid_transition_writer:( (external_transition, state_hash) With_hash.t
+    -> valid_transition_writer:( (external_transition_checked, state_hash) With_hash.t
                                , drop_head buffered
                                , unit )
                                Writer.t
@@ -137,6 +143,7 @@ module type Transition_handler_processor_intf = sig
   type time_controller
 
   type external_transition
+  type external_transition_checked
 
   type transition_frontier
 
@@ -146,9 +153,9 @@ module type Transition_handler_processor_intf = sig
        logger:Logger.t
     -> time_controller:time_controller
     -> frontier:transition_frontier
-    -> valid_transition_reader:(external_transition, state_hash) With_hash.t
+    -> valid_transition_reader:(external_transition_checked, state_hash) With_hash.t
                                Reader.t
-    -> catchup_job_writer:( (external_transition, state_hash) With_hash.t
+    -> catchup_job_writer:( (external_transition_checked, state_hash) With_hash.t
                           , drop_head buffered
                           , unit )
                           Writer.t
@@ -165,6 +172,8 @@ module type Transition_handler_intf = sig
 
   type external_transition
 
+  type external_transition_checked
+
   type transition_frontier
 
   type transition_frontier_breadcrumb
@@ -174,12 +183,14 @@ module type Transition_handler_intf = sig
     with type time := time
      and type state_hash := state_hash
      and type external_transition := external_transition
+     and type external_transition_checked := external_transition_checked
      and type transition_frontier := transition_frontier
 
   module Processor :
     Transition_handler_processor_intf
     with type time_controller := time_controller
      and type external_transition := external_transition
+     and type external_transition_checked := external_transition_checked
      and type state_hash := state_hash
      and type transition_frontier := transition_frontier
      and type transition_frontier_breadcrumb := transition_frontier_breadcrumb
@@ -220,6 +231,7 @@ module type Transition_frontier_controller_intf = sig
   type time_controller
 
   type external_transition
+  type external_transition_checked
 
   type syncable_ledger_query
 
@@ -244,5 +256,5 @@ module type Transition_frontier_controller_intf = sig
                           , synchronous
                           , unit Async.Deferred.t )
                           Writer.t
-    -> (external_transition, state_hash) With_hash.t Reader.t
+    -> (external_transition_checked, state_hash) With_hash.t Reader.t
 end

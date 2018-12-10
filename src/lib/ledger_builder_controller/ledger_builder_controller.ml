@@ -384,6 +384,8 @@ let%test_module "test" =
         module Ledger_builder_diff = struct
           type t = int [@@deriving bin_io, sexp]
 
+          type checked = int [@@deriving bin_io, sexp]
+
           module With_valid_signatures_and_proofs = struct
             type t = int
           end
@@ -450,7 +452,10 @@ let%test_module "test" =
                  t
               -> snarked_ledger_hash:Frozen_ledger_hash.t
               -> Ledger.t Or_error.t =
-           fun t ~snarked_ledger_hash:_ -> Ok !t
+            fun t ~snarked_ledger_hash:_ -> Ok !t
+
+          let checked_diff_of_diff _t _diff = failwith "checked_diff_of_diff: unimplemented"
+          let diff_of_checked_diff _diff = failwith "checked_diff_of_diff: unimplemented"
         end
 
         module State_hash = struct

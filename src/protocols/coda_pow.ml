@@ -484,6 +484,10 @@ module type Ledger_builder_diff_intf = sig
     {completed_works: completed_work list; user_commands: user_command list}
   [@@deriving sexp, bin_io]
 
+  type diff_checked =
+    {completed_works_checked: completed_work_checked list; user_commands: user_command list}
+  [@@deriving sexp, bin_io]
+
   type diff_with_at_most_two_coinbase =
     {diff: diff; coinbase_parts: completed_work At_most_two.t}
   [@@deriving sexp, bin_io]
@@ -501,6 +505,26 @@ module type Ledger_builder_diff_intf = sig
   type t =
     {pre_diffs: pre_diffs; prev_hash: ledger_builder_hash; creator: public_key}
   [@@deriving sexp, bin_io]
+
+  (* analogous types with checked completed work *)
+
+  type diff_with_at_most_two_coinbase_checked =
+    {diff_checked: diff_checked; coinbase_parts_checked: completed_work_checked At_most_two.t}
+  [@@deriving sexp, bin_io]
+
+  type diff_with_at_most_one_coinbase_checked =
+    {diff_checked: diff_checked; coinbase_added_checked: completed_work_checked At_most_one.t}
+  [@@deriving sexp, bin_io]
+
+  type pre_diffs_checked =
+    ( diff_with_at_most_one_coinbase_checked
+    , diff_with_at_most_two_coinbase_checked * diff_with_at_most_one_coinbase_checked )
+    Either.t
+  [@@deriving sexp, bin_io]
+
+  type checked =
+    {checked_pre_diffs: pre_diffs_checked; prev_hash: ledger_builder_hash; creator: public_key}
+      [@@deriving sexp, bin_io]
 
   module With_valid_signatures_and_proofs : sig
     type diff =
@@ -534,6 +558,8 @@ module type Ledger_builder_diff_intf = sig
   val forget : With_valid_signatures_and_proofs.t -> t
 
   val user_commands : t -> user_command list
+
+  val uncheck_completed_work : completed_work_checked -> completed_work
 end
 
 module type Ledger_builder_transition_intf = sig
@@ -556,6 +582,8 @@ module type Ledger_builder_base_intf = sig
   type t [@@deriving sexp]
 
   type diff
+
+  type checked_diff
 
   type valid_diff
 
@@ -619,6 +647,10 @@ module type Ledger_builder_base_intf = sig
 
   val snarked_ledger :
     t -> snarked_ledger_hash:frozen_ledger_hash -> ledger Or_error.t
+
+  val checked_diff_of_diff : t -> diff -> checked_diff Or_error.t
+
+  val diff_of_checked_diff : checked_diff -> diff
 end
 
 module type Ledger_builder_intf = sig
@@ -640,6 +672,8 @@ module type Ledger_builder_intf = sig
 
   type completed_work
 
+  type completed_work_checked
+
   type public_key
 
   val ledger : t -> ledger
@@ -653,7 +687,7 @@ module type Ledger_builder_intf = sig
     -> self:public_key
     -> logger:Logger.t
     -> transactions_by_fee:user_command_with_valid_signature Sequence.t
-    -> get_completed_work:(statement -> completed_work option)
+    -> get_completed_work:(statement -> completed_work_checked option)
     -> valid_diff
 
   val all_work_pairs :
@@ -670,6 +704,8 @@ module type Ledger_builder_intf = sig
          Snark_work_lib.Work.Single.Spec.t
          option )
        list
+
+  val check_completed_works : t -> completed_work list -> completed_work_checked list Or_error.t
 
   val statement_exn : t -> [`Non_empty of ledger_proof_statement | `Empty]
 end
@@ -809,6 +845,7 @@ module type External_transition_intf = sig
   type ledger_builder_diff
 
   type t [@@deriving sexp, bin_io]
+  type checked [@@deriving sexp, bin_io]
 
   val create :
        protocol_state:protocol_state
@@ -819,6 +856,10 @@ module type External_transition_intf = sig
   val protocol_state : t -> protocol_state
 
   val protocol_state_proof : t -> protocol_state_proof
+
+  val checked_protocol_state : checked -> protocol_state
+
+  val checked_protocol_state_proof : checked -> protocol_state_proof
 
   val ledger_builder_diff : t -> ledger_builder_diff
 end
@@ -1168,7 +1209,8 @@ Merge Snark:
      and type user_command_with_valid_signature :=
                 User_command.With_valid_signature.t
      and type statement := Completed_work.Statement.t
-     and type completed_work := Completed_work.Checked.t
+     and type completed_work := Completed_work.t
+     and type completed_work_checked := Completed_work.Checked.t
      and type sparse_ledger := Sparse_ledger.t
      and type ledger_proof_statement := Ledger_proof_statement.t
      and type ledger_proof_statement_set := Ledger_proof_statement.Set.t

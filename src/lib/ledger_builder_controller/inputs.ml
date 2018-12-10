@@ -36,6 +36,8 @@ module Base = struct
     module Ledger_builder_diff : sig
       type t [@@deriving sexp, bin_io]
 
+      type checked [@@deriving sexp, bin_io]
+
       module With_valid_signatures_and_proofs : sig
         type t
       end
@@ -147,6 +149,7 @@ module Base = struct
        and type valid_diff :=
                   Ledger_builder_diff.With_valid_signatures_and_proofs.t
        and type diff := Ledger_builder_diff.t
+       and type checked_diff := Ledger_builder_diff.checked
        and type ledger_proof := Ledger_proof.t
        and type ledger := Ledger.t
        and type ledger_builder_aux_hash := Ledger_builder_aux_hash.t

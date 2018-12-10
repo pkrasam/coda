@@ -9,6 +9,7 @@ module Make (Inputs : Inputs.S) :
   with type state_hash := State_hash.t
    and type time_controller := Inputs.Time.Controller.t
    and type external_transition := Inputs.External_transition.t
+   and type external_transition_checked := Inputs.External_transition.checked
    and type transition_frontier := Inputs.Transition_frontier.t
    and type transition_frontier_breadcrumb :=
               Inputs.Transition_frontier.Breadcrumb.t = struct
@@ -19,18 +20,19 @@ module Make (Inputs : Inputs.S) :
   (* TODO: calculate a sensible value from postake consensus arguments *)
   let catchup_timeout_duration = Time.Span.of_ms 6000L
 
-  let transition_parent_hash t =
-    External_transition.protocol_state t |> Protocol_state.previous_state_hash
+  let transition_parent_hash checked =
+    External_transition.checked_protocol_state checked |> Protocol_state.previous_state_hash
 
-  let run ~logger ~time_controller ~frontier ~valid_transition_reader
-      ~catchup_job_writer ~catchup_breadcrumbs_reader =
+  type foo = (Inputs.External_transition.checked, State_hash.t) With_hash.t
+    
+  let run ~logger ~time_controller ~frontier ~valid_transition_reader:(valid_transition_reader:(Inputs.External_transition.checked, State_hash.t) With_hash.t Reader.t) ~catchup_job_writer ~catchup_breadcrumbs_reader =
     let logger = Logger.child logger "Transition_handler.Catchup" in
     let catchup_monitor = Catchup_monitor.create ~catchup_job_writer in
     ignore
       (Reader.Merge.iter_sync
          [ Reader.map catchup_breadcrumbs_reader ~f:(fun cb ->
                `Catchup_breadcrumbs cb )
-         ; Reader.map valid_transition_reader ~f:(fun vt ->
+         ; Reader.map valid_transition_reader ~f:(fun (vt:foo) ->
                `Valid_transition vt ) ]
          ~f:(fun msg ->
            trace_task "transition_handler_processor" (fun () ->
@@ -40,7 +42,7 @@ module Make (Inputs : Inputs.S) :
                | `Catchup_breadcrumbs (_ :: _ as breadcrumbs) ->
                    List.iter breadcrumbs
                      ~f:(Transition_frontier.attach_breadcrumb_exn frontier)
-               | `Valid_transition transition -> (
+               | `Valid_transition (transition:foo) -> (
                  match
                    Transition_frontier.find frontier
                      (transition_parent_hash (With_hash.data transition))

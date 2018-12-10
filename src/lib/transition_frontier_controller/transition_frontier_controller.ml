@@ -22,6 +22,7 @@ module type Inputs_intf = sig
     Transition_handler_intf
     with type time_controller := Time.Controller.t
      and type external_transition := External_transition.t
+     and type external_transition_checked := External_transition.checked
      and type state_hash := State_hash.t
      and type transition_frontier := Transition_frontier.t
      and type time := Time.t
@@ -31,6 +32,7 @@ module type Inputs_intf = sig
   module Catchup :
     Catchup_intf
     with type external_transition := External_transition.t
+    with type external_transition_checked := External_transition.checked
      and type state_hash := State_hash.t
      and type transition_frontier := Transition_frontier.t
      and type transition_frontier_breadcrumb :=
@@ -41,6 +43,7 @@ module Make (Inputs : Inputs_intf) :
   Transition_frontier_controller_intf
   with type time_controller := Inputs.Time.Controller.t
    and type external_transition := Inputs.External_transition.t
+   and type external_transition_checked := Inputs.External_transition.checked
    and type syncable_ledger_query := Inputs.Syncable_ledger.query
    and type syncable_ledger_answer := Inputs.Syncable_ledger.answer
    and type transition_frontier := Inputs.Transition_frontier.t
