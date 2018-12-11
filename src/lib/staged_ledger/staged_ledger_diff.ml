@@ -87,6 +87,37 @@ struct
     ; creator: Compressed_public_key.t }
   [@@deriving sexp, bin_io]
 
+  (* "checked" versions of these types *)
+
+  type diff_checked =
+    { completed_works_checked: Transaction_snark_work.Checked.t list
+    ; user_commands: User_command.t list }
+  [@@deriving sexp, bin_io]
+
+  type diff_with_at_most_two_coinbase_checked =
+    { diff_checked: diff_checked
+    ; coinbase_parts_checked: Transaction_snark_work.Checked.t At_most_two.t }
+  [@@deriving sexp, bin_io]
+
+  type diff_with_at_most_one_coinbase_checked =
+    { diff_checked: diff_checked
+    ; coinbase_added_checked: Transaction_snark_work.Checked.t At_most_one.t }
+  [@@deriving sexp, bin_io]
+
+  type pre_diffs_checked =
+    ( diff_with_at_most_one_coinbase_checked
+    , diff_with_at_most_two_coinbase_checked
+      * diff_with_at_most_one_coinbase_checked )
+    Either.t
+  [@@deriving sexp, bin_io]
+
+  type checked =
+    { checked_pre_diffs: pre_diffs_checked
+    ; prev_hash: Staged_ledger_hash.t
+    ; creator: Compressed_public_key.t }
+  [@@deriving sexp, bin_io]
+
+
   module With_valid_signatures_and_proofs = struct
     type diff =
       { completed_works: Transaction_snark_work.Checked.t list
@@ -166,4 +197,6 @@ struct
     Either.value_map t.pre_diffs
       ~first:(fun d -> d.diff.user_commands)
       ~second:(fun d -> (fst d).diff.user_commands @ (snd d).diff.user_commands)
+
+  let uncheck_completed_work _cw = failwith "uncheck_completed_work: not implemented"
 end

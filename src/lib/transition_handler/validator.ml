@@ -60,24 +60,53 @@ module Make (Inputs : Inputs.S) = struct
       log_assert proof_is_valid "proof was invalid"
     else Deferred.return false
 
+  let verify_transition ~frontier ~transition :
+      External_transition.checked Or_error.t =
+    let diff = External_transition.ledger_builder_diff transition in
+    let tip = Transition_frontier.best_tip frontier in
+    let staged_ledger = Transition_frontier.Breadcrumb.staged_ledger tip in
+    let ledger_builder =
+      Transition_frontier.hack_temporary_ledger_builder_of_staged_ledger
+        staged_ledger
+    in
+    match Ledger_builder.checked_diff_of_diff ledger_builder diff with
+    | Ok checked_diff ->
+        Ok
+          (External_transition.create_checked
+             ~checked_protocol_state:
+               (External_transition.protocol_state transition)
+             ~checked_protocol_state_proof:
+               (External_transition.protocol_state_proof transition)
+             ~checked_ledger_builder_diff:checked_diff)
+    | Error _ -> Error (Error.of_string "Could not verify transition")
+
   let run ~logger ~frontier ~transition_reader ~valid_transition_writer =
-    let logger = Logger.child logger "transition_handler_validator" in
+    let logger =
+      Logger.child logger "transition_handler_validator_and_verifier"
+    in
     don't_wait_for
       (Reader.iter transition_reader
          ~f:(fun (`Transition transition_env, `Time_received time_received) ->
-           let transition = Envelope.Incoming.data transition_env in
            if%map
              validate_transition ~logger ~frontier ~time_received
                transition_env
            then
-             Writer.write valid_transition_writer
-               (With_hash.of_data transition
-                  ~hash_data:
-                    (Fn.compose Protocol_state.hash
-                       External_transition.protocol_state))
+             let transition = Envelope.Incoming.data transition_env in
+             match verify_transition ~frontier ~transition with
+             | Ok checked_transition ->
+                 Writer.write valid_transition_writer
+                   (With_hash.of_data checked_transition
+                      ~hash_data:
+                        (Fn.compose Protocol_state.hash
+                           External_transition.checked_protocol_state))
+             | Error _ ->
+                 Logger.warn logger
+                   !"failed to verify transition from the network! sent by \
+                     %{sexp: Host_and_port.t}"
+                   (Envelope.Incoming.sender transition_env)
            else
              Logger.warn logger
-               !"failed to verify transition from the network! sent by \
+               !"failed to validate transition from the network! sent by \
                  %{sexp: Host_and_port.t}"
                (Envelope.Incoming.sender transition_env) ))
 end

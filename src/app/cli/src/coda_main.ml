@@ -242,6 +242,8 @@ module type Main_intf = sig
 
     module Staged_ledger_diff : sig
       type t [@@deriving sexp, bin_io]
+
+      type checked [@@deriving sexp, bin_io]
     end
 
     module Internal_transition :

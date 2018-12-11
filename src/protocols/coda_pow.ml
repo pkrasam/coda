@@ -504,6 +504,36 @@ module type Staged_ledger_diff_intf = sig
     {pre_diffs: pre_diffs; prev_hash: staged_ledger_hash; creator: public_key}
   [@@deriving sexp, bin_io]
 
+  (* analogous types with checked completed work *)
+
+  type diff_checked =
+    { completed_works_checked: completed_work_checked list
+    ; user_commands: user_command list }
+  [@@deriving sexp, bin_io]
+
+  type diff_with_at_most_two_coinbase_checked =
+    { diff_checked: diff_checked
+    ; coinbase_parts_checked: completed_work_checked At_most_two.t }
+  [@@deriving sexp, bin_io]
+
+  type diff_with_at_most_one_coinbase_checked =
+    { diff_checked: diff_checked
+    ; coinbase_added_checked: completed_work_checked At_most_one.t }
+  [@@deriving sexp, bin_io]
+
+  type pre_diffs_checked =
+    ( diff_with_at_most_one_coinbase_checked
+    , diff_with_at_most_two_coinbase_checked
+      * diff_with_at_most_one_coinbase_checked )
+    Either.t
+  [@@deriving sexp, bin_io]
+
+  type checked =
+    { checked_pre_diffs: pre_diffs_checked
+    ; prev_hash: staged_ledger_hash
+    ; creator: public_key }
+  [@@deriving sexp, bin_io]
+
   module With_valid_signatures_and_proofs : sig
     type diff =
       { completed_works: completed_work_checked list
@@ -534,12 +564,16 @@ module type Staged_ledger_diff_intf = sig
   val forget : With_valid_signatures_and_proofs.t -> t
 
   val user_commands : t -> user_command list
+
+  val uncheck_completed_work : completed_work_checked -> completed_work
 end
 
 module type Staged_ledger_transition_intf = sig
   type staged_ledger
 
   type diff
+
+  type checked_diff
 
   type diff_with_valid_signatures_and_proofs
 
@@ -550,6 +584,7 @@ module type Staged_ledger_transition_intf = sig
   end
 
   val forget : With_valid_signatures_and_proofs.t -> t
+
 end
 
 module type Monad_with_Or_error_intf = sig
@@ -665,6 +700,8 @@ module type Staged_ledger_base_intf = sig
 
   type diff
 
+  type checked_diff
+     
   type valid_diff
 
   type staged_ledger_aux_hash
@@ -748,7 +785,7 @@ module type Staged_ledger_intf = sig
 
   type sparse_ledger
 
-  type completed_work
+  type completed_work_checked
 
   type public_key
 
@@ -761,7 +798,7 @@ module type Staged_ledger_intf = sig
     -> self:public_key
     -> logger:Logger.t
     -> transactions_by_fee:user_command_with_valid_signature Sequence.t
-    -> get_completed_work:(statement -> completed_work option)
+    -> get_completed_work:(statement -> completed_work_checked option)
     -> valid_diff
 
   val all_work_pairs :
@@ -780,6 +817,11 @@ module type Staged_ledger_intf = sig
        list
 
   val statement_exn : t -> [`Non_empty of ledger_proof_statement | `Empty]
+
+
+  val checked_diff_of_diff : t -> diff -> checked_diff Or_error.t
+
+  val diff_of_checked_diff : checked_diff -> diff
 end
 
 module type Work_selector_intf = sig
@@ -919,6 +961,8 @@ module type External_transition_intf = sig
 
   type t [@@deriving sexp, bin_io]
 
+  type checked [@@deriving sexp, bin_io]
+
   val create :
        protocol_state:protocol_state
     -> protocol_state_proof:protocol_state_proof
@@ -928,6 +972,10 @@ module type External_transition_intf = sig
   val protocol_state : t -> protocol_state
 
   val protocol_state_proof : t -> protocol_state_proof
+
+  val checked_protocol_state : checked -> protocol_state
+
+  val checked_protocol_state_proof : checked -> protocol_state_proof
 
   val staged_ledger_diff : t -> staged_ledger_diff
 end
@@ -1277,7 +1325,7 @@ Merge Snark:
      and type user_command_with_valid_signature :=
                 User_command.With_valid_signature.t
      and type statement := Transaction_snark_work.Statement.t
-     and type completed_work := Transaction_snark_work.Checked.t
+     and type completed_work_checked := Transaction_snark_work.Checked.t
      and type sparse_ledger := Sparse_ledger.t
      and type ledger_proof_statement := Ledger_proof_statement.t
      and type ledger_proof_statement_set := Ledger_proof_statement.Set.t

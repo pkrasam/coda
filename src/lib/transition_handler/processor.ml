@@ -9,6 +9,7 @@ module Make (Inputs : Inputs.S) :
   with type state_hash := State_hash.t
    and type time_controller := Inputs.Time.Controller.t
    and type external_transition := Inputs.External_transition.t
+   and type external_transition_checked := Inputs.External_transition.checked
    and type transition_frontier := Inputs.Transition_frontier.t
    and type transition_frontier_breadcrumb :=
               Inputs.Transition_frontier.Breadcrumb.t = struct
@@ -20,7 +21,8 @@ module Make (Inputs : Inputs.S) :
   let catchup_timeout_duration = Time.Span.of_ms 6000L
 
   let transition_parent_hash t =
-    External_transition.protocol_state t |> Protocol_state.previous_state_hash
+    External_transition.checked_protocol_state t
+    |> Protocol_state.previous_state_hash
 
   let run ~logger ~time_controller ~frontier ~valid_transition_reader
       ~catchup_job_writer ~catchup_breadcrumbs_reader =

@@ -47,10 +47,11 @@ module type Inputs_intf = sig
     External_transition.S
     with module Protocol_state = Consensus.Mechanism.Protocol_state
      and module Staged_ledger_diff := Staged_ledger_diff
-
+       
   module Staged_ledger :
     Staged_ledger_intf
     with type diff := Staged_ledger_diff.t
+     and type checked_diff := Staged_ledger_diff.checked
      and type valid_diff :=
                 Staged_ledger_diff.With_valid_signatures_and_proofs.t
      and type staged_ledger_hash := Staged_ledger_hash.t
@@ -63,7 +64,7 @@ module type Inputs_intf = sig
      and type user_command_with_valid_signature :=
                 User_command.With_valid_signature.t
      and type statement := Transaction_snark_work.Statement.t
-     and type completed_work := Transaction_snark_work.Checked.t
+     and type completed_work_checked := Transaction_snark_work.Checked.t
      and type sparse_ledger := Sparse_ledger.t
      and type ledger_proof_statement := Ledger_proof_statement.t
      and type ledger_proof_statement_set := Ledger_proof_statement.Set.t
@@ -74,6 +75,7 @@ module Make (Inputs : Inputs_intf) :
   Transition_frontier_intf
   with type state_hash := State_hash.t
    and type external_transition := Inputs.External_transition.t
+   and type external_transition_checked := Inputs.External_transition.checked
    and type ledger_database := Ledger.Db.t
    and type staged_ledger := Inputs.Staged_ledger.t
    and type masked_ledger := Ledger.Mask.Attached.t
@@ -281,11 +283,13 @@ struct
   let add_transition_exn t transition_with_hash =
     let root_node = Hashtbl.find_exn t.table t.root in
     let best_tip_node = Hashtbl.find_exn t.table t.best_tip in
-    let transition = With_hash.data transition_with_hash in
+    let (transition : Inputs.External_transition.checked) =
+      With_hash.data transition_with_hash
+    in
     let hash = With_hash.hash transition_with_hash in
     let parent_hash =
       Consensus.Mechanism.Protocol_state.previous_state_hash
-        (Inputs.External_transition.protocol_state transition)
+        (Inputs.External_transition.checked_protocol_state transition)
     in
     let parent_node =
       Option.value_exn
@@ -299,7 +303,7 @@ struct
         , `Updated_staged_ledger staged_ledger ) =
       Inputs.Staged_ledger.apply ~logger:t.logger
         (Breadcrumb.staged_ledger parent_node.breadcrumb)
-        (Inputs.External_transition.staged_ledger_diff transition)
+        (Inputs.External_transition.checked_staged_ledger_diff transition)
       |> Or_error.ok_exn
     in
     let breadcrumb = {Breadcrumb.transition_with_hash; staged_ledger} in
